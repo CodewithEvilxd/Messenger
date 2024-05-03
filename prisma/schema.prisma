@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                 String         @id @default(auto()) @map("_id") @db.ObjectId
+  name               String?
+  email              String?        @unique
+  emailVerified      DateTime?
+  image              String?
+  hashedPassword     String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  // many-to-many
+  conversationsAdmin Conversation[] @relation("conversationAdmin")
+  // many-to-many
+  conversationsIds   String[]       @db.ObjectId
+  conversations      Conversation[] @relation("userGroupRelation", fields: [conversationsIds], references: [id])
+  leftGroupIds       String[]       @db.ObjectId
+  wasMemberOf        Conversation[] @relation("userLeftGroupRelation", fields: [leftGroupIds], references: [id])
+  // many-to-many
+  seenMessageIds     String[]       @db.ObjectId
+  seenMessages       Message[]      @relation("seen", fields: [seenMessageIds], references: [id])
+  // one-many
+  accounts           Account[]
+  sessions           Session[]
+  // one-many
+  messages           Message[]
+}
+
+model Conversation {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastMessageAt DateTime  @default(now())
+  name          String?
+  isGroup       Boolean?
+  // one-many
+  adminId       String    @db.ObjectId
+  admin         User      @relation("conversationAdmin", fields: [adminId], references: [id])
+  // one-many
+  messagesIds   String[]  @db.ObjectId
+  messages      Message[]
+  // many-to-many
+  leftUserIds   String[]  @db.ObjectId
+  leftUsers     User[]    @relation("userLeftGroupRelation", fields: [leftUserIds], references: [id])
+  userIds       String[]  @db.ObjectId
+  users         User[]    @relation("userGroupRelation", fields: [userIds], references: [id])
+}
+
+model Message {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  body           String?
+  image          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  // many-to-many
+  seenIds        String[]     @db.ObjectId
+  seenBy         User[]       @relation("seen", fields: [seenIds], references: [id])
+  // one-many
+  conversationId String       @db.ObjectId
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // one-to-many
+  senderId       String       @db.ObjectId
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
